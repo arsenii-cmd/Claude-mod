@@ -1,0 +1,15 @@
+{
+  "name": "session-panel",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "test": "node tests/run.mjs",
+    "check": "node --check hooks/register.mjs && node --check hooks/format.mjs",
+    "validate:claude": "claude plugin validate ."
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

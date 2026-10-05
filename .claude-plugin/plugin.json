@@ -1,0 +1,13 @@
+{
+  "name": "session-panel",
+  "version": "1.0.0",
+  "description": "Live model, context, 5h/7d limits, session cost and Git status above the Claude Code prompt.",
+  "author": {
+    "name": "arsenii-cmd",
+    "url": "https://github.com/arsenii-cmd"
+  },
+  "homepage": "https://github.com/arsenii-cmd/Claude-mod",
+  "repository": "https://github.com/arsenii-cmd/Claude-mod",
+  "license": "MIT",
+  "keywords": ["mod", "ui", "context", "usage", "rate-limits", "git"]
+}

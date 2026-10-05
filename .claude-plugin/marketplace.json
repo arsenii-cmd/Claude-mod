@@ -1,0 +1,15 @@
+{
+  "name": "arsenii-mods",
+  "owner": {
+    "name": "arsenii-cmd"
+  },
+  "plugins": [
+    {
+      "name": "session-panel",
+      "source": "./",
+      "description": "Model, context, account limits, session cost, repository and branch above the prompt.",
+      "version": "1.0.0",
+      "license": "MIT"
+    }
+  ]
+}
