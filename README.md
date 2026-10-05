@@ -105,13 +105,31 @@ claude --plugin-dir .
 
 ## Обновление и удаление
 
+Для обновления выполните команды **в обычном терминале**, из папки рабочего проекта. Это позволяет Claude Code выбрать ту же область установки (`user`, `project` или `local`), что используется в вашей сессии:
+
 ```sh
 claude plugin marketplace update arsenii-mods
 claude plugin update session-panel@arsenii-mods
-claude plugin uninstall session-panel@arsenii-mods
+claude plugin list
 ```
 
-После обновления выполните `/reload-plugins` или начните новую сессию. Для отключения без удаления используйте `claude plugin disable session-panel@arsenii-mods`.
+В списке найдите `session-panel@arsenii-mods`: версия должна быть **1.1.0**, статус — enabled. Затем выполните `/reload-plugins` в открытой сессии. Эта команда применяет уже скачанное обновление; сама она не скачивает код из GitHub.
+
+Если осталась старая панель, выйдите из Claude Code командой `/exit` и запустите его заново в том же рабочем проекте. Команда `claude --continue` продолжит последнюю беседу. У версии 1.1.0 есть кнопка **Развернуть / Свернуть** и короткое имя модели. Компактный вид при нехватке высоты также содержит кнопку **Развернуть**.
+
+Если `claude plugin list` всё ещё показывает 1.0.0 или команда обновления сообщает ошибку, сохраните её вывод для диагностики. `claude plugin list --json` показывает область установки и `installPath` загружаемой копии. Проверка установки и обновления 1.0.0 → 1.1.0 выполнена штатным CLI Claude Code 2.1.289 через GitHub marketplace.
+
+Для отключения без удаления:
+
+```sh
+claude plugin disable session-panel@arsenii-mods
+```
+
+Для удаления:
+
+```sh
+claude plugin uninstall session-panel@arsenii-mods
+```
 
 ## Авторы и контрибьюторы
 
