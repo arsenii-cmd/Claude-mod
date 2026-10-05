@@ -101,6 +101,11 @@ claude plugin uninstall session-panel@arsenii-mods
 
 После обновления выполните `/reload-plugins` или начните новую сессию. Для отключения без удаления используйте `claude plugin disable session-panel@arsenii-mods`.
 
+## Авторы и контрибьюторы
+
+- [arsenii-cmd](https://github.com/arsenii-cmd) — автор проекта и требований.
+- [OpenAI Codex](https://openai.com/codex/) — разработка мода, тесты и документация.
+
 ## Лицензия
 
 [MIT](LICENSE): свободное использование, изменение и распространение, в том числе в коммерческих проектах, с сохранением текста лицензии и уведомления об авторстве.
