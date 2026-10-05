@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
 // All host operations stay in this module, with literal $.namespace.method calls
 // and top-level helpers, as required by Claude Code's static mod analysis.
-import { metricsFor, printable } from "./format.mjs";
+import { printable } from "./format.mjs";
+import { drawPanel, panelLayout } from "./panel.mjs";
 
 const REFRESH_MS = 15_000;
 const GIT_OPTIONS = { timeoutMs: 1000, env: { GIT_OPTIONAL_LOCKS: "0" } };
 let timer;
 let generation = 0;
+let panelMode = "auto";
+let selectedDetail = null;
 const repositories = new Map();
 const pendingRepositories = new Map();
 
@@ -69,34 +72,6 @@ async function readRepository($, cwd, now) {
   }
 }
 
-function drawBand(Box, Text, rows, columns) {
-  const padding = columns >= 6 ? 1 : 0;
-  const width = Math.max(1, columns - padding * 2);
-  return Box({
-    flexDirection: "column",
-    width: columns,
-    paddingX: padding,
-    children: rows.map((metrics) => Box({
-      flexDirection: "row",
-      flexWrap: "wrap",
-      columnGap: 2,
-      rowGap: 0,
-      children: metrics.map(({ label, value, color }) => Box({
-        // Constrain long model/repository/branch names to the band's width.
-        width: Math.min(width, Array.from(`${label} ${value}`).length),
-        flexShrink: 0,
-        children: Text({
-          wrap: "wrap",
-          children: [
-            Text({ dimColor: true, children: `${label} ` }),
-            Text({ color, children: value }),
-          ],
-        }),
-      })),
-    })),
-  });
-}
-
 export function register(on) {
   on("session.start", async ($, e, next) => {
     invalidateRepositories();
@@ -133,6 +108,7 @@ export function register(on) {
 
   on("session.end", async ($, e, next) => {
     invalidateRepositories();
+    selectedDetail = null;
     // /clear, /resume and /branch don't run session.start again.
     if (e.reason !== "clear" && e.reason !== "resume") {
       timer?.cancel();
@@ -151,12 +127,31 @@ export function register(on) {
       $.clock.now(),
     ]);
     const git = await readRepository($, cwd, now);
-    const { Box, Text } = $.ui.resolve(e);
+    const contextDetails = selectedDetail === "context"
+      ? await $.session.usage({ breakdown: "summary" }).catch(() => null)
+      : null;
+    const { Box, Text, Button } = $.ui.resolve(e);
     const measured = e.props.bodyColumns ?? e.viewport?.columns ?? 80;
     const columns = Number.isFinite(measured) ? Math.max(1, Math.floor(measured)) : 80;
+    const layout = panelLayout(columns, e.props.maxRows, panelMode);
+    const actions = {
+      toggle: () => {
+        panelMode = layout.expanded ? "compact" : "expanded";
+        selectedDetail = null;
+        $.ui.invalidate("ui.render");
+      },
+      select: (id) => {
+        selectedDetail = selectedDetail === id ? null : id;
+        $.ui.invalidate("ui.render");
+      },
+      close: () => {
+        selectedDetail = null;
+        $.ui.invalidate("ui.render");
+      },
+    };
     return Box({
       flexDirection: "column",
-      children: [existing, drawBand(Box, Text, metricsFor(model, usage, git, cwd, now), columns)],
+      children: [existing, drawPanel({ Box, Text, Button }, { model, usage, git, cwd, now, contextDetails }, layout, selectedDetail, actions)],
     });
   });
 }

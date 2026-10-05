@@ -3,12 +3,15 @@
   "owner": {
     "name": "arsenii-cmd"
   },
+  "metadata": {
+    "description": "Claude Code UI mods by arsenii-cmd."
+  },
   "plugins": [
     {
       "name": "session-panel",
       "source": "./",
-      "description": "Model, context, account limits, session cost, repository and branch above the prompt.",
-      "version": "1.0.0",
+      "description": "Interactive context and quota cards with compact mode, details, session cost and Git status.",
+      "version": "1.1.0",
       "license": "MIT"
     }
   ]

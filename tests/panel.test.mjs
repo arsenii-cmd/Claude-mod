@@ -26,14 +26,19 @@ async function harness(run) {
       ],
       cost: { usd: 0.1842 },
     },
-    processCalls: [], timers: [], cancelled: 0, redraws: 0,
+    processCalls: [], usageCalls: [], timers: [], cancelled: 0, redraws: 0,
   };
   const element = (type) => (props) => ({ type, ...props });
   const $ = {
     session: {
       model: async () => state.model,
       usage: async (...args) => {
-        assert.equal(args.length, 0, "status readings must not request a paid breakdown");
+        assert.ok(args.length === 0 || args[0]?.breakdown === "summary", "never request a paid breakdown");
+        state.usageCalls.push(args[0]);
+        if (args[0]?.breakdown === "summary") return {
+          ...state.usage,
+          context: { ...state.usage.context, breakdown: state.breakdown },
+        };
         return state.usage;
       },
       cwd: async () => state.cwd,
@@ -47,7 +52,7 @@ async function harness(run) {
       },
     },
     ui: {
-      resolve: () => ({ Box: element("Box"), Text: element("Text") }),
+      resolve: () => ({ Box: element("Box"), Text: element("Text"), Button: element("Button") }),
       invalidate: (event) => { assert.equal(event, "ui.render"); state.redraws += 1; },
     },
     process: {
@@ -72,7 +77,7 @@ async function harness(run) {
   }
   const render = (props = {}, surface = "terminal") => fire("ui.render", {
     component: "AbovePrompt", surface,
-    props: { hasSurvey: false, bodyColumns: 80, ...props },
+    props: { hasSurvey: false, bodyColumns: 80, maxRows: 5, ...props },
   }, existing);
   return { $, state, existing, fire, render };
 }
@@ -80,7 +85,19 @@ async function harness(run) {
 function text(node) {
   if (typeof node === "string") return node;
   if (Array.isArray(node)) return node.map(text).join("");
-  return node && typeof node === "object" ? text(node.children) : "";
+  return node && typeof node === "object" ? node.type === "Button" ? node.label : text(node.children) : "";
+}
+
+function elements(node) {
+  if (Array.isArray(node)) return node.flatMap(elements);
+  if (!node || typeof node !== "object") return [];
+  return [node, ...elements(node.children)];
+}
+
+function press(tree, key) {
+  const button = elements(tree).find((node) => node.type === "Button" && node.key === key);
+  assert.ok(button, `missing button ${key}`);
+  return button.onPress();
 }
 
 test("the band includes all seven metrics and preserves other mods", async () => {
@@ -88,7 +105,7 @@ test("the band includes all seven metrics and preserves other mods", async () =>
   const drawn = await h.render();
   assert.equal(drawn.children[0], h.existing);
   for (const reading of [
-    "Модель claude-sonnet-4-6", "Контекст 48 320/200 000 ток · 24.2%",
+    "Модель Sonnet 4.6", "Контекст 48 320/200 000 ток · 24.2%",
     "5h 37.5% · сброс 2ч 14м", "7d 62% · сброс 3д 5ч 7м",
     "Сессия $0.1842", "Репо owner/project", "Ветка main",
   ]) assert.ok(text(drawn).includes(reading), reading);
@@ -109,7 +126,7 @@ test("readings stay current, Git calls are cached, and external branch changes r
   h.state.usage.cost.usd = 1.2345;
   h.state.usage.rateLimits[0].percentUsed = 75;
   const updated = text(await h.render());
-  assert.ok(updated.includes("claude-opus-4-6"));
+  assert.ok(updated.includes("Opus 4.6"));
   assert.ok(updated.includes("$1.2345"));
   assert.ok(updated.includes("5h 75%"));
   assert.equal(h.state.processCalls.length, 1);
@@ -190,13 +207,79 @@ test("narrow bands constrain every metric and keep both limits", async () => {
     const drawn = await h.render({ bodyColumns: width });
     const band = drawn.children[1];
     assert.equal(band.width, width);
-    for (const row of band.children) {
-      assert.equal(row.flexWrap, "wrap");
-      for (const metric of row.children) assert.ok(metric.width <= width);
-    }
+    for (const element of elements(band)) if (element.width !== undefined) assert.ok(element.width <= width);
     assert.ok(text(band).includes("5h 37.5%"));
     assert.ok(text(band).includes("7d 62%"));
   }
+});
+
+test("expanded cards show remaining quota and exact free tokens", async () => {
+  const h = await harness();
+  const drawing = await h.render({ bodyColumns: 120, maxRows: 40 });
+  const cards = elements(drawing).filter((node) => node.key?.startsWith("session-panel-card-"));
+  assert.equal(cards.length, 3);
+  for (const reading of ["SESSION PANEL", "24.2% окна", "Свободно 151 680 ток", "37.5% использовано", "Осталось 62.5%", "Осталось 38%", "Сброс через 2ч 14м"]) {
+    assert.ok(text(drawing).includes(reading), reading);
+  }
+  assert.ok(h.state.usageCalls.every((call) => call === undefined));
+});
+
+test("toggle remains collapsed across redraws and clear; opening restores cards", async () => {
+  const h = await harness();
+  const props = { bodyColumns: 120, maxRows: 40 };
+  press(await h.render(props), "session-panel-toggle");
+  let drawing = await h.render(props);
+  assert.equal(elements(drawing).filter((node) => node.key?.startsWith("session-panel-card-")).length, 0);
+  await h.fire("session.end", { reason: "clear" });
+  drawing = await h.render(props);
+  assert.ok(text(drawing).includes("Развернуть"));
+  press(drawing, "session-panel-toggle");
+  assert.ok(text(await h.render(props)).includes("SESSION PANEL"));
+});
+
+test("context details request only free summary counts and clear on session changes", async () => {
+  const h = await harness();
+  h.state.breakdown = {
+    rawMaxTokens: 200_000,
+    categories: [{ name: "Messages", tokens: 45_120, kind: "used" }, { name: "Free space", tokens: 151_680, kind: "free" }],
+    autoCompactThreshold: 180_000,
+  };
+  const props = { bodyColumns: 120, maxRows: 40 };
+  press(await h.render(props), "session-panel-detail-context");
+  const opened = await h.render(props);
+  assert.ok(text(opened).includes("Messages 45 120 ток"));
+  assert.ok(text(opened).includes("Автосжатие от 180 000 ток"));
+  assert.ok(h.state.usageCalls.some((call) => call?.breakdown === "summary"));
+  press(opened, "session-panel-close-detail");
+  assert.ok(!text(await h.render(props)).includes("ПОДРОБНОСТИ КОНТЕКСТА"));
+  press(await h.render(props), "session-panel-detail-context");
+  await h.fire("session.end", { reason: "resume" });
+  assert.ok(!text(await h.render(props)).includes("ПОДРОБНОСТИ КОНТЕКСТА"));
+});
+
+test("quota details show an absolute reset date without making a breakdown request", async () => {
+  const h = await harness();
+  const props = { bodyColumns: 120, maxRows: 40 };
+  press(await h.render(props), "session-panel-detail-five_hour");
+  const opened = await h.render(props);
+  assert.ok(text(opened).includes("Использовано 37.5% · осталось 62.5%"));
+  assert.ok(text(opened).includes("Сброс: 5 окт. 2026"));
+  assert.ok(h.state.usageCalls.every((call) => call === undefined));
+});
+
+test("cards stack on narrow windows and automatic mode respects short windows", async () => {
+  const h = await harness();
+  for (const width of [40, 80, 120]) {
+    const drawing = await h.render({ bodyColumns: width, maxRows: 60 });
+    const cards = elements(drawing).filter((node) => node.key?.startsWith("session-panel-card-"));
+    assert.equal(cards.length, 3);
+    assert.ok(cards.every((card) => card.width <= width - 4));
+  }
+  const short = await h.render({ bodyColumns: 120, maxRows: 4 });
+  assert.ok(text(short).includes("Развернуть"));
+  assert.ok(!text(short).includes("SESSION PANEL"));
+  press(short, "session-panel-toggle");
+  assert.ok(text(await h.render({ bodyColumns: 120, maxRows: 4 })).includes("SESSION PANEL"));
 });
 
 test("real Git resolves an unborn branch, a worktree branch and detached HEAD", async (t) => {

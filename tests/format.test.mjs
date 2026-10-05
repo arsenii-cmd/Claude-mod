@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   basename, costText, metricsFor, percentage, printable,
   repositoryName, resetIn, tokens, usageColor,
+  contextPercent, remainingTokens, remainingPercent, modelTitle, progressBar, resetDate,
 } from "../hooks/format.mjs";
 
 test("unknown readings differ from real zeroes", () => {
@@ -16,6 +17,35 @@ test("unknown readings differ from real zeroes", () => {
     assert.equal(tokens(bad), "—");
     assert.equal(percentage(bad), "—");
   }
+});
+
+test("progress bars preserve zero and unknown data and fill to their exact width", () => {
+  assert.deepEqual(progressBar(37.5, 16), { filled: "██████", empty: "░░░░░░░░░░" });
+  assert.deepEqual(progressBar(undefined, 8), { filled: "", empty: "········" });
+  assert.deepEqual(progressBar(0, 4), { filled: "", empty: "░░░░" });
+  assert.deepEqual(progressBar(100, 4), { filled: "████", empty: "" });
+  assert.deepEqual(progressBar(110, 4), { filled: "████", empty: "" });
+  assert.equal(remainingPercent(undefined), undefined);
+  assert.equal(remainingPercent(37.5), 62.5);
+  assert.equal(remainingPercent(110), 0);
+  assert.equal(remainingTokens({ window: 200_000 }), undefined);
+  assert.equal(remainingTokens({ tokens: 48_320, window: 200_000 }), 151_680);
+  assert.equal(contextPercent({ tokens: 50_000, window: 200_000 }), 25);
+});
+
+test("model badges abbreviate known IDs and preserve custom model names", () => {
+  assert.equal(modelTitle("claude-sonnet-4-6"), "Sonnet 4.6");
+  assert.equal(modelTitle("claude-sonnet-4-5-20250929"), "Sonnet 4.5");
+  assert.equal(modelTitle("claude-opus-4-20250514"), "Opus 4");
+  assert.equal(modelTitle("claude-opus-4-6[1m]"), "Opus 4.6 · 1M");
+  assert.equal(modelTitle("custom-provider-model"), "custom-provider-model");
+  assert.equal(modelTitle(undefined), "—");
+});
+
+test("absolute reset dates identify the timezone and reject invalid readings", () => {
+  assert.match(resetDate("2026-10-05T12:14:00Z", "Europe/Moscow"), /15:14.*Europe\/Moscow/);
+  assert.equal(resetDate("invalid"), "—");
+  assert.equal(resetDate(undefined), "—");
 });
 
 test("token counts remain exact and percentages keep one decimal", () => {

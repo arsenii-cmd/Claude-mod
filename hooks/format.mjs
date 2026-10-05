@@ -29,6 +29,47 @@ export function usageColor(value) {
   return "green";
 }
 
+export function contextPercent(context) {
+  if (knownNumber(context?.percent)) return context.percent;
+  return knownNumber(context?.tokens) && knownNumber(context?.window) && context.window > 0
+    ? (context.tokens / context.window) * 100
+    : undefined;
+}
+
+export function remainingTokens(context) {
+  return knownNumber(context?.tokens) && knownNumber(context?.window)
+    ? Math.max(0, context.window - context.tokens)
+    : undefined;
+}
+
+export function remainingPercent(value) {
+  return knownNumber(value) ? Math.max(0, 100 - value) : undefined;
+}
+
+export function modelTitle(model) {
+  const name = printable(model);
+  const match = name.match(/^(?:claude-)?(sonnet|opus|haiku)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?(\[1m\])?$/i);
+  return match
+    ? `${match[1][0].toUpperCase()}${match[1].slice(1).toLowerCase()} ${match[2]}${match[3] ? `.${match[3]}` : ""}${match[4] ? " · 1M" : ""}`
+    : name || UNKNOWN;
+}
+
+export function resetDate(resetsAt, timeZone) {
+  const date = typeof resetsAt === "string" ? new Date(resetsAt) : null;
+  if (!date || !Number.isFinite(date.getTime())) return UNKNOWN;
+  const zone = timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return `${new Intl.DateTimeFormat("ru-RU", {
+    dateStyle: "medium", timeStyle: "short", timeZone: zone,
+  }).format(date)} (${zone})`;
+}
+
+export function progressBar(value, width) {
+  const cells = Math.max(1, Math.floor(width));
+  if (!knownNumber(value)) return { filled: "", empty: "·".repeat(cells) };
+  const filled = Math.round(Math.min(100, value) / 100 * cells);
+  return { filled: "█".repeat(filled), empty: "░".repeat(cells - filled) };
+}
+
 export function resetIn(resetsAt, now) {
   const reset = typeof resetsAt === "string" ? Date.parse(resetsAt) : NaN;
   if (!Number.isFinite(reset) || !Number.isFinite(now)) return UNKNOWN;
@@ -74,11 +115,7 @@ export function repositoryName(repo) {
 
 export function metricsFor(model, usage, git, cwd, now) {
   const context = usage?.context;
-  const fill = knownNumber(context?.percent)
-    ? context.percent
-    : knownNumber(context?.tokens) && knownNumber(context?.window) && context.window > 0
-      ? (context.tokens / context.window) * 100
-      : undefined;
+  const fill = contextPercent(context);
   const limits = Array.isArray(usage?.rateLimits) ? usage.rateLimits : [];
   const limit = (kind, label) => {
     const reading = limits.find((item) => item.kind === kind);
