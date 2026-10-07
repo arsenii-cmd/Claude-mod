@@ -9,6 +9,30 @@ const usage = {
   cost: { usd: 0.1842 },
 };
 
+test("native busy hydration pins typing through time and collection toggles", async ($, on) => {
+  let now = 0;
+  on("session.model", () => ({ value: "claude-sonnet-4-6" }));
+  on("session.usage", () => ({ value: usage }));
+  on("session.cwd", () => ({ value: "/work/project" }));
+  on("session.repo", () => ({ value: null }));
+  on("clock.now", () => ({ value: now }));
+  on("ui.render", () => ({ type: "Box", children: [] }));
+  const props = {
+    hasSurvey: false, isWorking: true, maxRows: 40, bodyColumns: 160,
+    scroll: { offset: 0, bodyRows: 40 }, view: {},
+  };
+  const ui = await $.ui.mount({ plugin: "session-panel", component: "AbovePrompt", surface: "terminal", props });
+  const typing = JSON.stringify(await ui.find({ key: "session-panel-pet-image" }));
+  expect(JSON.stringify(await ui.drawn())).toContain("Работает");
+  await ui.press({ key: "session-panel-pet-mode" });
+  now += 120_000;
+  await ui.redraw(props);
+  expect(JSON.stringify(await ui.find({ key: "session-panel-pet-image" }))).toBe(typing);
+  expect(JSON.stringify(await ui.drawn())).toContain("Работает");
+  await ui.redraw({ ...props, isWorking: false });
+  expect(JSON.stringify(await ui.drawn())).toContain("Ожидает запроса");
+});
+
 test("native terminal and Desktop validate cards, quota details and folding", async ($, on) => {
   on("session.model", () => ({ value: "claude-sonnet-4-6" }));
   on("session.usage", () => ({ value: usage }));

@@ -3,7 +3,7 @@
 // and top-level helpers, as required by Claude Code's static mod analysis.
 import { printable } from "./format.mjs";
 import { drawPanel, panelLayout } from "./panel.mjs";
-import { choosePet, createPetState, petFrame, petSize, pets, resultActivity, setActivity, setPetMode, toolActivity } from "./pets.mjs";
+import { activityLabel, choosePet, completionActivity, createPetState, petFrame, petSize, pets, resultActivity, setActivity, setPetMode, toolActivity } from "./pets.mjs";
 
 const REFRESH_MS = 15_000;
 const GIT_OPTIONS = { timeoutMs: 1000, env: { GIT_OPTIONAL_LOCKS: "0" } };
@@ -15,8 +15,48 @@ const petState = createPetState();
 let animationTimer;
 let imageSite;
 let blitting = false;
+let animationGeneration = 0;
+let turnEpoch = 0;
+let activeTurnId = null;
+let hostWasWorking;
+let settled = false;
+const pendingTools = new Map();
+const retiredTurns = new Set();
+
+function resetTurn(working, turnId = null) {
+  if (activeTurnId && activeTurnId !== turnId) {
+    retiredTurns.add(activeTurnId);
+    if (retiredTurns.size > 32) retiredTurns.delete(retiredTurns.values().next().value);
+  }
+  turnEpoch += 1;
+  activeTurnId = turnId;
+  pendingTools.clear();
+  petState.working = working;
+  petState.lastToolResult = null;
+  settled = !working;
+}
+
+function pendingActivity() {
+  const tools = [...pendingTools.values()];
+  if (tools.some(tool => tool.waiting)) return "waiting";
+  return tools.at(-1)?.activity ?? petState.lastToolResult ?? "working";
+}
+
+function syncWorking(isWorking, now) {
+  if (typeof isWorking !== "boolean") return;
+  // A just-completed turn can still have isWorking=true for one render.
+  if (isWorking && !petState.working && (!settled || hostWasWorking === false)) {
+    resetTurn(true);
+    setActivity(petState, "working", now);
+  } else if (!isWorking && petState.working && hostWasWorking === true) {
+    resetTurn(false, activeTurnId);
+    setActivity(petState, "idle", now);
+  }
+  hostWasWorking = isWorking;
+}
 
 function stopAnimation() {
+  animationGeneration += 1;
   animationTimer?.cancel();
   animationTimer = undefined;
   imageSite = undefined;
@@ -24,20 +64,22 @@ function stopAnimation() {
 
 function startAnimation($) {
   if (animationTimer || !imageSite) return;
+  const ownGeneration = animationGeneration;
   animationTimer = $.clock.every(1000 / 12, async () => {
-    if (!imageSite || blitting) return;
+    if (!imageSite || blitting || ownGeneration !== animationGeneration) return;
     blitting = true;
     const mounted = imageSite;
     try {
       const now = await $.clock.now();
-      const previous = petState.current;
+      if (ownGeneration !== animationGeneration || imageSite !== mounted) return;
+      const previousActivity = petState.activity;
       const pet = choosePet(petState, now);
       if (!pet) return;
-      if (previous !== pet.id) {
+      if (mounted.petId !== pet.id || previousActivity !== petState.activity) {
         $.ui.invalidate("ui.render");
         return;
       }
-      const result = await $.ui.blit({ requestId: mounted, key: "session-panel-pet-image", source: petFrame(pet, now - petState.since) });
+      const result = await $.ui.blit({ requestId: mounted.requestId, key: "session-panel-pet-image", source: petFrame(pet, now - petState.since) });
       if (result?.deny && imageSite === mounted) stopAnimation();
     } catch {
       if (imageSite === mounted) stopAnimation();
@@ -110,8 +152,12 @@ async function readRepository($, cwd, now) {
 
 export function register(on) {
   on("session.start", async ($, e, next) => {
-    petState.working = false;
-    setActivity(petState, "idle", await $.clock.now());
+    resetTurn(false);
+    settled = false;
+    hostWasWorking = undefined;
+    const ownEpoch = turnEpoch;
+    const now = await $.clock.now();
+    if (ownEpoch === turnEpoch) setActivity(petState, "idle", now);
     invalidateRepositories();
     if (e.isInteractive || e.surface) startTimer($);
     $.ui.invalidate("ui.render");
@@ -129,11 +175,15 @@ export function register(on) {
   });
 
   on("turn.complete", async ($, e, next) => {
+    const ownEpoch = turnEpoch;
     const result = await next(e);
-    if (!e.agentId) {
-      petState.working = false;
-      setActivity(petState, "success", await $.clock.now());
-      $.ui.invalidate("ui.render");
+    const now = await $.clock.now();
+    if (!e.agentId && ownEpoch === turnEpoch && !retiredTurns.has(e.turnId)
+      && (!settled || (activeTurnId && activeTurnId === e.turnId))
+      && (!activeTurnId || !e.turnId || e.turnId === activeTurnId)) {
+      resetTurn(false);
+      hostWasWorking = undefined;
+      setActivity(petState, completionActivity(e), now);
       invalidateRepositories();
       $.ui.invalidate("ui.render");
     }
@@ -142,31 +192,46 @@ export function register(on) {
 
   on("turn.start", async ($, e, next) => {
     if (!e.agentId) {
-      petState.working = true;
-      setActivity(petState, "working", await $.clock.now());
-      $.ui.invalidate("ui.render");
+      resetTurn(true, e.turnId);
+      const ownEpoch = turnEpoch;
+      const now = await $.clock.now();
+      if (ownEpoch === turnEpoch) {
+        setActivity(petState, "working", now);
+        $.ui.invalidate("ui.render");
+      }
     }
     return next(e);
   });
 
   on("tool.call", async ($, e, next) => {
-    if (!e.agentId) {
-      setActivity(petState, toolActivity(e), await $.clock.now());
+    if (e.agentId) return next(e);
+    if (!petState.working && !settled) resetTurn(true);
+    const ownEpoch = turnEpoch;
+    const key = e.tool_use_id ?? {};
+    const activity = toolActivity(e);
+    const token = { activity, waiting: activity === "waiting" };
+    pendingTools.set(key, token);
+    const started = await $.clock.now();
+    if (ownEpoch === turnEpoch && pendingTools.get(key) === token) {
+      setActivity(petState, pendingActivity(), started);
       $.ui.invalidate("ui.render");
     }
     try {
       const result = await next(e);
-      if (!e.agentId) {
-        const activity = resultActivity(result);
-        if (activity) {
-          setActivity(petState, activity, await $.clock.now());
-          $.ui.invalidate("ui.render");
-        }
+      const now = await $.clock.now();
+      if (ownEpoch === turnEpoch && pendingTools.get(key) === token) {
+        pendingTools.delete(key);
+        petState.lastToolResult = resultActivity(result);
+        setActivity(petState, petState.working ? pendingActivity() : "idle", now);
+        $.ui.invalidate("ui.render");
       }
       return result;
     } catch (error) {
-      if (!e.agentId) {
-        setActivity(petState, "error", await $.clock.now());
+      const now = await $.clock.now();
+      if (ownEpoch === turnEpoch && pendingTools.get(key) === token) {
+        pendingTools.delete(key);
+        petState.lastToolResult = "error";
+        setActivity(petState, petState.working ? pendingActivity() : "idle", now);
         $.ui.invalidate("ui.render");
       }
       throw error;
@@ -182,8 +247,11 @@ export function register(on) {
 
   on("session.end", async ($, e, next) => {
     stopAnimation();
-    petState.working = false;
-    setActivity(petState, "idle", await $.clock.now());
+    resetTurn(false);
+    hostWasWorking = undefined;
+    const ownEpoch = turnEpoch;
+    const now = await $.clock.now();
+    if (ownEpoch === turnEpoch) setActivity(petState, "idle", now);
     invalidateRepositories();
     selectedDetail = null;
     // /clear, /resume and /branch don't run session.start again.
@@ -195,6 +263,9 @@ export function register(on) {
   });
 
   on("ui.render", { component: "AbovePrompt" }, async ($, e, next) => {
+    const ownEpoch = turnEpoch;
+    const observedAt = await $.clock.now();
+    if (ownEpoch === turnEpoch) syncWorking(e.props.isWorking, observedAt);
     if (e.props.hasSurvey) {
       stopAnimation();
       return next(e);
@@ -245,15 +316,16 @@ export function register(on) {
       key: "session-panel-pet-controls", flexDirection: "row", flexWrap: "wrap", columnGap: 2,
       children: [
         Button({ key: "session-panel-pet-mode", label: petState.mode === "collection" ? "По действиям" : `Вся коллекция · ${pets.length}`, plain: true, onPress: () => changeMode(petState.mode === "collection" ? "auto" : "collection") }),
-        Button({ key: "session-panel-pet-visibility", label: petState.mode === "off" ? "Показать Clawd" : "Скрыть Clawd", plain: true, dimColor: true, onPress: () => changeMode(petState.mode === "off" ? "auto" : "off") }),
+        Button({ key: "session-panel-pet-visibility", label: petState.mode === "off" ? "Показать Clawd" : "Скрыть Clawd", plain: true, dimColor: true, onPress: () => changeMode(petState.mode === "off" ? petState.visibleMode : "off") }),
         pet ? Text({ dimColor: true, children: `${petState.mode === "collection" ? "Коллекция" : "Clawd"}: ${pet.name}` }) : null,
+        Text({ key: "session-panel-pet-state", dimColor: true, children: activityLabel(petState) }),
       ],
     }) : null;
     const mascot = showPet ? Box({ key: "session-panel-mascot", width: 22, flexShrink: 0, flexDirection: "column", alignItems: "center", justifyContent: "flex-end", children: [
       Image({ key: "session-panel-pet-image", source: petFrame(pet, now - petState.since), ...petSize(pet), alt: `Clawd: ${pet.name}` }),
     ] }) : null;
     if (showPet && e.requestId) {
-      imageSite = e.requestId;
+      imageSite = { requestId: e.requestId, petId: pet.id };
       startAnimation($);
     } else stopAnimation();
     return Box({

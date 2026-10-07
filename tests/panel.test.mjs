@@ -5,6 +5,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { pets } from "../hooks/pets.mjs";
 
 const execute = promisify(execFile);
 let moduleId = 0;
@@ -72,9 +73,11 @@ async function harness(run, graphics = false) {
       forwarded += 1;
       return result;
     };
-    const answer = await hooks.get(name)($, event, next);
-    assert.equal(forwarded, 1, "the downstream hook must run exactly once");
-    return answer;
+    try {
+      return await hooks.get(name)($, event, next);
+    } finally {
+      assert.equal(forwarded, 1, "the downstream hook must run exactly once");
+    }
   }
   const render = (props = {}, surface = "terminal") => fire("ui.render", {
     component: "AbovePrompt", surface,
@@ -101,6 +104,145 @@ function press(tree, key) {
   assert.ok(button, `missing button ${key}`);
   return button.onPress();
 }
+
+const petProps = { bodyColumns: 160, maxRows: 40 };
+function assertScene(tree, id) {
+  const image = elements(tree).find(node => node.key === "session-panel-pet-image");
+  assert.equal(image?.alt, `Clawd: ${pets.find(pet => pet.id === id).name}`);
+}
+function deferred() {
+  let resolve, reject;
+  const promise = new Promise((ok, fail) => { resolve = ok; reject = fail; });
+  return { promise, resolve, reject };
+}
+
+test("both modes keep typing across tool changes, errors, denial and long turns", async () => {
+  for (const collection of [false, true]) {
+    const h = await harness(undefined, true);
+    if (collection) press(await h.render(petProps), "session-panel-pet-mode");
+    await h.fire("turn.start", { turnId: "main-turn" });
+    for (const [tool, args, result] of [
+      ["Read", {}, {}], ["Write", {}, {}], ["Grep", {}, {}],
+      ["Bash", { command: "npm test" }, { isError: true, text: "test failed" }],
+      ["Bash", { command: "git push" }, { deny: "not allowed" }],
+      ["WebFetch", {}, { text: "HTTP/2 429", result: {} }],
+    ]) {
+      await h.fire("tool.call", { tool, ...args }, result);
+      h.state.now += 120_000;
+      assertScene(await h.render({ ...petProps, isWorking: true }), "working-typing");
+    }
+    await assert.rejects(h.fire("tool.call", { tool: "Bash" }, Promise.reject(new Error("tool crashed"))), /tool crashed/);
+    assertScene(await h.render(petProps), "working-typing");
+    await h.fire("turn.complete", { turnId: "main-turn", reason: "answer" });
+    assertScene(await h.render({ ...petProps, isWorking: true }), "celebrating", "a stale busy render must not revive the completed turn");
+  }
+});
+
+test("each completion reason is held then expires; a new turn interrupts the outcome", async () => {
+  const h = await harness(undefined, true);
+  press(await h.render(petProps), "session-panel-pet-mode");
+  for (const [reason, scene] of Object.entries({ answer: "celebrating", error: "error", aborted: "shrug", refusal: "skeptical" })) {
+    await h.fire("turn.start", { turnId: reason });
+    await h.fire("turn.complete", { turnId: reason, reason, isAborted: reason === "aborted" });
+    assertScene(await h.render(petProps), scene);
+    h.state.now += 7_999;
+    assertScene(await h.render(petProps), scene);
+    h.state.now += 1;
+    assert.ok(text(await h.render(petProps)).includes("Ожидает запроса"));
+  }
+  await h.fire("turn.start", { turnId: "last" });
+  await h.fire("turn.complete", { turnId: "last", reason: "answer" });
+  await h.fire("turn.start", { turnId: "next" });
+  assertScene(await h.render(petProps), "working-typing");
+});
+
+test("reload hydrates busy state from the host; host end and delayed completion agree", async () => {
+  const h = await harness(undefined, true);
+  assertScene(await h.render({ ...petProps, isWorking: true }), "working-typing");
+  h.state.now += 120_000;
+  assertScene(await h.render({ ...petProps, isWorking: true, hasSurvey: false }), "working-typing");
+  assert.ok(text(await h.render({ ...petProps, isWorking: false })).includes("Ожидает запроса"));
+  await h.fire("turn.start", { turnId: "delayed" });
+  await h.render({ ...petProps, isWorking: true });
+  await h.render({ ...petProps, isWorking: false });
+  await h.fire("turn.complete", { turnId: "delayed", reason: "error" });
+  assertScene(await h.render({ ...petProps, isWorking: false }), "error");
+  assertScene(await h.render({ ...petProps, isWorking: true }), "working-typing");
+});
+
+test("parallel questions stay waiting until every question resolves, including failure", async () => {
+  const h = await harness(undefined, true);
+  await h.fire("turn.start", { turnId: "questions" });
+  const first = deferred(), second = deferred(), command = deferred();
+  const one = h.fire("tool.call", { tool: "AskUserQuestion", tool_use_id: "q1" }, first.promise);
+  const two = h.fire("tool.call", { tool: "AskUserQuestion", tool_use_id: "q2" }, second.promise);
+  const bash = h.fire("tool.call", { tool: "Bash", tool_use_id: "b1" }, command.promise);
+  assertScene(await h.render(petProps), "working-oncall");
+  h.state.now += 120_000;
+  command.resolve({ result: "ok" }); await bash;
+  assertScene(await h.render(petProps), "working-oncall");
+  first.resolve({ result: "answer" }); await one;
+  assertScene(await h.render(petProps), "working-oncall");
+  const rejection = assert.rejects(two, /cancelled/);
+  second.reject(new Error("cancelled")); await rejection;
+  assertScene(await h.render(petProps), "working-typing");
+});
+
+test("old tools and turn completions cannot overwrite a new turn or a cleared session", async () => {
+  const h = await harness(undefined, true);
+  await h.fire("turn.start", { turnId: "old" });
+  const delayedTool = deferred(), delayedTurn = deferred();
+  const tool = h.fire("tool.call", { tool: "AskUserQuestion", tool_use_id: "old-q" }, delayedTool.promise);
+  const completion = h.fire("turn.complete", { turnId: "old", reason: "answer" }, delayedTurn.promise);
+  await h.render(petProps);
+  await h.fire("session.end", { reason: "clear" });
+  delayedTool.resolve({ isError: true }); await tool;
+  delayedTurn.resolve({ text: "stale" }); await completion;
+  assert.ok(text(await h.render(petProps)).includes("Ожидает запроса"));
+  await h.fire("turn.start", { turnId: "new" });
+  await h.fire("turn.complete", { turnId: "old", reason: "error" });
+  assertScene(await h.render(petProps), "working-typing");
+  await h.fire("turn.complete", { turnId: "new", reason: "answer" });
+  await h.fire("turn.complete", { turnId: "new", reason: "error" });
+  assertScene(await h.render(petProps), "celebrating");
+});
+
+test("subagents and hiding the pet don't disturb the main lifecycle", async () => {
+  const h = await harness(undefined, true);
+  press(await h.render(petProps), "session-panel-pet-mode");
+  await h.fire("turn.start", { turnId: "main" });
+  await h.fire("tool.call", { tool: "AskUserQuestion", agentId: "child" });
+  await h.fire("turn.complete", { turnId: "child-turn", agentId: "child", reason: "error" });
+  assertScene(await h.render(petProps), "working-typing");
+  press(await h.render(petProps), "session-panel-pet-visibility");
+  await h.fire("turn.complete", { turnId: "main", reason: "aborted" });
+  const hidden = await h.render(petProps);
+  assert.ok(!elements(hidden).some(node => node.key === "session-panel-pet-image"));
+  assert.ok(text(hidden).includes("Остановлен"));
+  press(hidden, "session-panel-pet-visibility");
+  const restored = await h.render(petProps);
+  assertScene(restored, "shrug");
+  assert.ok(text(restored).includes("Коллекция:"), "showing restores the previous random mode");
+});
+
+test("scene changes wait for new geometry; callbacks from cancelled timers stay retired", async () => {
+  const h = await harness(undefined, true);
+  const drawing = await h.render(petProps);
+  const timer = h.state.timers.at(-1);
+  await h.fire("turn.start", { turnId: "animate" });
+  await timer.callback();
+  await timer.callback();
+  assert.equal(h.state.blits.length, 0, "don't blit a new scene into the previous scene's size");
+  await h.render(petProps);
+  await timer.callback();
+  assert.equal(h.state.blits.length, 1);
+  press(drawing, "session-panel-pet-mode");
+  await h.render(petProps);
+  await timer.callback();
+  assert.equal(h.state.blits.length, 1, "old timer must not paint after restart");
+  await h.state.timers.at(-1).callback();
+  assert.equal(h.state.blits.length, 2);
+});
 
 test("the band includes all seven metrics and preserves other mods", async () => {
   const h = await harness();

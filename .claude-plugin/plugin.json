@@ -1,6 +1,6 @@
 {
   "name": "session-panel",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Session cards above the prompt, with 148 offline animated Clawd Pets, activity reactions and a random collection mode.",
   "author": {
     "name": "arsenii-cmd",

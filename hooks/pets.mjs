@@ -6,21 +6,12 @@ import { decodePetFrame } from "./pet-codec.mjs";
 export { pets };
 const byId = new Map(pets.map((pet) => [pet.id, pet]));
 const SWAP_MS = 12_000;
-const pools = {
-  working: ["working-typing", "coding", "working-thinking", "working-wizard"],
-  reading: ["reading", "studying", "working-reviewing", "detective"],
-  editing: ["working-typing", "coding", "working-building", "crafting"],
-  running: ["running", "working-tool-calling", "working-carrying"],
-  testing: ["working-testing", "working-debugger", "working-rubber-duck"],
-  searching: ["detective", "telescope", "working-reviewing"],
-  success: ["celebrating", "clapping", "dancing", "happy", "trophy"],
-  error: ["working-debugger", "working-confused", "working-rubber-duck"],
-  waiting: ["peeking", "working-oncall", "working-thinking"],
-  idle: pets.filter((pet) => ["activities", "seasonal"].includes(pet.category) && !["error", "fire", "disconnected", "battery-low"].includes(pet.id)).map((pet) => pet.id),
-};
+const OUTCOME_MS = 8_000;
+const outcomes = { success: "celebrating", error: "error", aborted: "shrug", refusal: "skeptical" };
+const idlePool = pets.filter((pet) => ["activities", "seasonal"].includes(pet.category) && !["error", "fire", "disconnected", "battery-low"].includes(pet.id)).map((pet) => pet.id);
 
 export function createPetState() {
-  return { mode: "auto", activity: "idle", current: "waving", since: null, changed: null, bag: [], working: false };
+  return { mode: "auto", visibleMode: "auto", activity: "idle", current: "waving", since: null, changed: null, bag: [], working: false, lastToolResult: null };
 }
 
 function shuffle(ids, random) {
@@ -33,24 +24,38 @@ function shuffle(ids, random) {
 }
 
 export function setActivity(state, activity, now) {
-  // Collection is purely decorative: tool events never interrupt its shuffle.
   if (state.activity !== activity) {
     state.activity = activity;
-    if (state.mode === "auto") state.changed = null;
+    state.changed = null;
   }
   state.activityAt = now;
 }
 
 export function setPetMode(state, mode) {
+  const previous = state.mode === "off" ? state.visibleMode : state.mode;
+  if (mode !== "off") {
+    state.visibleMode = mode;
+    if (previous !== mode) state.bag = [];
+  }
   state.mode = mode;
   state.changed = null;
-  state.bag = [];
 }
 
 export function choosePet(state, now, random = Math.random) {
+  // Work and its outcome override BOTH random modes. Tool changes must not
+  // restart the typing loop or consume the idle collection's shuffle bag.
+  if (!state.working && state.activity !== "idle" && now - state.activityAt >= OUTCOME_MS) {
+    setActivity(state, "idle", now);
+  }
   if (state.mode === "off") return null;
-  if (state.mode === "auto" && ["success", "error"].includes(state.activity) && now - state.activityAt >= 8_000) {
-    setActivity(state, state.working ? "working" : "idle", now);
+  const pinned = state.working
+    ? (state.activity === "waiting" ? "working-oncall" : "working-typing")
+    : outcomes[state.activity] ?? (/^[1-5]\d\d$/.test(state.activity) && byId.has(state.activity) ? state.activity : null);
+  if (pinned) {
+    if (state.current !== pinned || state.since === null) state.since = now;
+    state.current = pinned;
+    state.changed = now;
+    return byId.get(pinned);
   }
   if (state.changed === null || now - state.changed >= SWAP_MS || now < state.changed) {
     if (state.mode === "collection") {
@@ -60,7 +65,7 @@ export function choosePet(state, now, random = Math.random) {
       }
       state.current = state.bag.pop();
     } else {
-      const pool = (pools[state.activity] ?? (byId.has(state.activity) ? [state.activity] : pools.working));
+      const pool = idlePool;
       const candidates = pool.filter((id) => id !== state.current);
       const choices = candidates.length ? candidates : pool;
       state.current = choices[Math.floor(random() * choices.length)];
@@ -92,9 +97,9 @@ export function toolActivity(event) {
   if (tool === "AskUserQuestion") return "waiting";
   if (tool === "Bash") {
     const command = String(event.command ?? event.input?.command ?? "");
-    if (/\b(test|pytest|jest|vitest|cargo test)\b/.test(command)) return "testing";
     if (/\bgit\s+push\b/.test(command)) return "working-pushing";
     if (/\bgit\s+commit\b/.test(command)) return "shipping";
+    if (/\b(test|pytest|jest|vitest|cargo test)\b/.test(command)) return "testing";
     return "running";
   }
   return "working";
@@ -103,8 +108,29 @@ export function toolActivity(event) {
 export function resultActivity(result) {
   // Only explicitly labelled HTTP statuses count, never arbitrary numbers.
   const body = result?.result;
-  const output = typeof body === "string" ? body : [body?.stdout, body?.stderr].filter(Boolean).join("\n");
-  const status = output.match(/\b(?:HTTP\/\d(?:\.\d)?\s+|HTTP(?:\s+status)?\s*[:=]?\s+)([1-5]\d\d)\b/i)?.[1];
-  if (status && byId.has(status)) return status;
-  return result?.isError ? "error" : null;
+  const output = [result?.text, typeof body === "string" ? body : null,
+    body?.stdout, body?.stderr, ...(Array.isArray(body?.content) ? body.content.filter(item => item?.type === "text").map(item => item.text) : [])].filter(value => typeof value === "string").join("\n");
+  const status = [...output.matchAll(/\b(?:HTTP\/\d(?:\.\d)?\s+|HTTP(?:\s+status)?\s*[:=]?\s+)([1-5]\d\d)\b/gi)].at(-1)?.[1];
+  if (result?.deny) return "denied";
+  if (status && Number(status) >= 400) return status;
+  if (result?.isError || (typeof body?.exitCode === "number" && body.exitCode !== 0)) return "error";
+  return status ?? null;
+}
+
+export function completionActivity(event) {
+  if (event.isAborted || event.reason === "aborted") return "aborted";
+  if (event.reason === "answer") return "success";
+  if (event.reason === "refusal") return "refusal";
+  if (event.reason === "error") return "error";
+  return "idle";
+}
+
+export function activityLabel(state) {
+  if (state.working) {
+    if (/^[1-5]\d\d$/.test(state.activity)) return `Работает · инструмент: HTTP ${state.activity}`;
+    const actions = { reading: "читает", editing: "редактирует", searching: "ищет", running: "выполняет команду", testing: "тестирует", "working-pushing": "git push", shipping: "git commit", error: "ошибка инструмента", denied: "инструмент не разрешён" };
+    if (state.activity === "waiting") return "Ожидает ответа";
+    return actions[state.activity] ? `Работает · ${actions[state.activity]}` : "Работает";
+  }
+  return { success: "Ответ завершён", error: "Ошибка ответа", aborted: "Остановлен", refusal: "Отказ модели" }[state.activity] ?? "Ожидает запроса";
 }

@@ -11,7 +11,7 @@
       "name": "session-panel",
       "source": "./",
       "description": "Session cards above the prompt with 148 animated Clawd Pets and a random collection mode.",
-      "version": "1.2.2",
+      "version": "1.2.3",
       "license": "MIT"
     }
   ]

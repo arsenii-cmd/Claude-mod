@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { inflateRawSync, inflateSync } from "node:zlib";
-import { choosePet, createPetState, petFrame, petSize, pets, resultActivity, setActivity, setPetMode, toolActivity } from "../hooks/pets.mjs";
+import { activityLabel, choosePet, completionActivity, createPetState, petFrame, petSize, pets, resultActivity, setActivity, setPetMode, toolActivity } from "../hooks/pets.mjs";
 
 test("all upstream gallery entries have offline PNG frames and valid display sizes", () => {
   const catalog = JSON.parse(readFileSync(new URL("../assets/clawd-pets/catalog.json", import.meta.url)));
@@ -54,27 +54,57 @@ test("random collection visits every scene once per round with no boundary repea
   }
   for (let round = 0; round < 2; round++) assert.equal(new Set(rounds.slice(round * pets.length, (round + 1) * pets.length)).size, pets.length);
   assert.notEqual(rounds[pets.length - 1], rounds[pets.length]);
-  setActivity(state, "error", pets.length * 24_000);
-  assert.equal(state.changed, (pets.length * 2 - 1) * 12_000, "tool events do not interrupt collection");
 });
 
-test("auto mode reacts to work, avoids consecutive duplicates, and times out celebrations", () => {
+test("work stays pinned in both modes without resetting frames or consuming idle scenes", () => {
+  for (const mode of ["auto", "collection"]) {
+    const state = createPetState();
+    setPetMode(state, mode);
+    choosePet(state, 0, () => 0);
+    const bag = [...state.bag];
+    state.working = true;
+    for (const [index, activity] of ["working", "reading", "editing", "searching", "testing", "running", "working-pushing", "shipping", "error", "429", "denied"].entries()) {
+      setActivity(state, activity, 1 + index * 120_000);
+      assert.equal(choosePet(state, 1 + index * 120_000, () => 0).id, "working-typing");
+      assert.equal(state.since, 1, "tool changes must not restart the animation");
+      assert.deepEqual(state.bag, bag, "work must not consume the shuffled collection");
+    }
+    setActivity(state, "waiting", 1_500_000);
+    assert.equal(choosePet(state, 1_500_000).id, "working-oncall");
+    assert.equal(choosePet(state, 1_620_000).id, "working-oncall");
+    setActivity(state, "working", 1_700_000);
+    assert.equal(choosePet(state, 1_700_000).id, "working-typing");
+  }
+});
+
+test("idle auto rotation avoids duplicates; outcomes expire in both modes even while hidden", () => {
+  for (const mode of ["auto", "collection", "off"]) {
+    const state = createPetState();
+    setPetMode(state, mode);
+    for (const [activity, id] of Object.entries({ success: "celebrating", error: "error", aborted: "shrug", refusal: "skeptical" })) {
+      setActivity(state, activity, 0);
+      assert.equal(choosePet(state, 0, () => 0)?.id ?? null, mode === "off" ? null : id);
+      assert.equal(choosePet(state, 7_999, () => 0)?.id ?? null, mode === "off" ? null : id);
+      choosePet(state, 8_000, () => 0);
+      assert.equal(state.activity, "idle");
+    }
+  }
   const state = createPetState();
-  state.working = true;
-  setActivity(state, "editing", 0);
   const first = choosePet(state, 0, () => 0).id;
-  assert.ok(["working-typing", "coding", "working-building", "crafting"].includes(first));
   assert.notEqual(choosePet(state, 12_000, () => 0).id, first);
+});
+
+test("tool classification and every completion reason have distinct meanings", () => {
   assert.equal(toolActivity({ tool: "Bash", command: "npm test" }), "testing");
   assert.equal(toolActivity({ tool: "Read" }), "reading");
   assert.equal(toolActivity({ tool: "Bash", command: "git push" }), "working-pushing");
-  state.working = false;
-  setActivity(state, "success", 13_000);
-  assert.equal(choosePet(state, 13_000, () => 0).id, "celebrating");
-  choosePet(state, 21_000, () => 0);
-  assert.equal(state.activity, "idle");
-  setPetMode(state, "off");
-  assert.equal(choosePet(state, 22_000), null);
+  assert.equal(toolActivity({ tool: "Bash", command: "git push origin feature/test" }), "working-pushing");
+  for (const [reason, activity] of Object.entries({ answer: "success", aborted: "aborted", refusal: "refusal", error: "error", unknown: "idle" })) {
+    assert.equal(completionActivity({ reason }), activity);
+  }
+  assert.equal(completionActivity({ reason: "answer", isAborted: true }), "aborted");
+  assert.equal(activityLabel({ working: true, activity: "429" }), "Работает · инструмент: HTTP 429");
+  assert.equal(activityLabel({ working: false, activity: "error" }), "Ошибка ответа");
 });
 
 test("HTTP costumes require an actual HTTP status, not a number in arbitrary output", () => {
@@ -82,4 +112,11 @@ test("HTTP costumes require an actual HTTP status, not a number in arbitrary out
   assert.equal(resultActivity({ result: { stderr: "HTTP status: 404" }, isError: true }), "404");
   assert.equal(resultActivity({ result: "Processed 404 files in 500 ms" }), null);
   assert.equal(resultActivity({ isError: true, result: "build failed" }), "error");
+  assert.equal(resultActivity({ text: "HTTP/1.1 503 Service Unavailable", result: {} }), "503");
+  assert.equal(resultActivity({ result: { content: [{ type: "text", text: "HTTP status: 401" }] } }), "401");
+  assert.equal(resultActivity({ result: { stdout: "HTTP/2 200", exitCode: 1 } }), "error");
+  assert.equal(resultActivity({ deny: "blocked" }), "denied");
+  assert.equal(resultActivity({ result: { exitCode: 0, stderr: "warning only" } }), null);
+  assert.equal(resultActivity({ text: "HTTP/2 301\nHTTP/2 409" }), "409");
+  assert.equal(resultActivity({ result: { content: [null, { type: "text", text: "HTTP/2 504" }] } }), "504");
 });
