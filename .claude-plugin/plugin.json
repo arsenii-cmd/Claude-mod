@@ -1,7 +1,7 @@
 {
   "name": "session-panel",
-  "version": "1.1.0",
-  "description": "Interactive cards for model, context, 5h/7d limits, session cost and Git, with compact mode and details.",
+  "version": "1.2.0",
+  "description": "Session cards above the prompt, with 148 offline animated Clawd Pets, activity reactions and a random collection mode.",
   "author": {
     "name": "arsenii-cmd",
     "url": "https://github.com/arsenii-cmd"

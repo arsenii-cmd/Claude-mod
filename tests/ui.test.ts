@@ -69,3 +69,24 @@ test("native context details use the local estimate without paid token counting"
   expect(summaries > 0).toBe(true);
   expect(JSON.stringify(await ui.drawn())).toContain("Messages");
 });
+
+test("native mascot controls switch random collection and hide images without losing metrics", async ($, on) => {
+  on("session.model", () => ({ value: "claude-sonnet-4-6" }));
+  on("session.usage", () => ({ value: usage }));
+  on("session.cwd", () => ({ value: "/work/project" }));
+  on("session.repo", () => ({ value: null }));
+  on("clock.now", () => ({ value: Date.parse("2026-10-05T10:00:00Z") }));
+  on("ui.render", () => ({ type: "Box", children: [] }));
+  const ui = await $.ui.mount({
+    plugin: "session-panel", component: "AbovePrompt", surface: "terminal",
+    props: { hasSurvey: false, maxRows: 40, bodyColumns: 120, scroll: { offset: 0, bodyRows: 40 }, view: {} },
+  });
+  expect(await ui.find({ key: "session-panel-pet-image" })).toBeDefined();
+  await ui.press({ key: "session-panel-pet-mode" });
+  expect(JSON.stringify(await ui.drawn())).toContain("Коллекция:");
+  await ui.press({ key: "session-panel-pet-visibility" });
+  expect(await ui.find({ key: "session-panel-pet-image" })).toBeUndefined();
+  expect(await ui.find({ key: "session-panel-card-context" })).toBeDefined();
+  await ui.press({ key: "session-panel-pet-visibility" });
+  expect(await ui.find({ key: "session-panel-pet-image" })).toBeDefined();
+});

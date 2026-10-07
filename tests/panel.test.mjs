@@ -9,7 +9,7 @@ import { test } from "node:test";
 const execute = promisify(execFile);
 let moduleId = 0;
 
-async function harness(run) {
+async function harness(run, graphics = false) {
   // Each instance gets the same isolation as a separately loaded hooks module.
   const { register } = await import(`../hooks/register.mjs?test=${moduleId++}`);
   const hooks = new Map();
@@ -26,7 +26,7 @@ async function harness(run) {
       ],
       cost: { usd: 0.1842 },
     },
-    processCalls: [], usageCalls: [], timers: [], cancelled: 0, redraws: 0,
+    processCalls: [], usageCalls: [], timers: [], cancelled: 0, redraws: 0, blits: [],
   };
   const element = (type) => (props) => ({ type, ...props });
   const $ = {
@@ -52,7 +52,8 @@ async function harness(run) {
       },
     },
     ui: {
-      resolve: () => ({ Box: element("Box"), Text: element("Text"), Button: element("Button") }),
+      resolve: () => ({ Box: element("Box"), Text: element("Text"), Button: element("Button"), ...(graphics ? { Image: element("Image") } : {}) }),
+      blit: async (args) => { state.blits.push(args); return state.blitResult ?? {}; },
       invalidate: (event) => { assert.equal(event, "ui.render"); state.redraws += 1; },
     },
     process: {
@@ -77,6 +78,7 @@ async function harness(run) {
   }
   const render = (props = {}, surface = "terminal") => fire("ui.render", {
     component: "AbovePrompt", surface,
+    requestId: graphics ? "test-band" : undefined,
     props: { hasSurvey: false, bodyColumns: 80, maxRows: 5, ...props },
   }, existing);
   return { $, state, existing, fire, render };
@@ -110,6 +112,52 @@ test("the band includes all seven metrics and preserves other mods", async () =>
     "Сессия $0.1842", "Репо owner/project", "Ветка main",
   ]) assert.ok(text(drawn).includes(reading), reading);
   assert.equal(text(await h.render({}, "desktop")), text(drawn));
+});
+
+test("mascot animates by blit without repainting metrics and stops for hidden bands", async () => {
+  const h = await harness(undefined, true);
+  await h.fire("session.start", { isInteractive: true });
+  const props = { bodyColumns: 120, maxRows: 40 };
+  const drawing = await h.render(props);
+  assert.ok(elements(drawing).some(n => n.key === "session-panel-pet-image"));
+  assert.equal(elements(drawing).filter(n => n.key?.startsWith("session-panel-card-")).length, 3);
+  assert.ok(text(drawing).includes("Репо owner/project"));
+  const timer = h.state.timers.find(t => t.ms === 125);
+  assert.ok(timer);
+  const before = h.state.redraws;
+  h.state.now += 125;
+  await timer.callback();
+  assert.equal(h.state.blits.length, 1);
+  assert.equal(h.state.blits[0].requestId, "test-band");
+  assert.equal(h.state.redraws, before);
+  press(drawing, "session-panel-pet-mode");
+  assert.ok(text(await h.render(props)).includes("Коллекция:"));
+  press(await h.render(props), "session-panel-pet-visibility");
+  assert.ok(!elements(await h.render(props)).some(n => n.key === "session-panel-pet-image"));
+  assert.ok(h.state.cancelled > 0);
+  press(await h.render(props), "session-panel-pet-visibility");
+  await h.render(props);
+  await h.render({ ...props, hasSurvey: true });
+  const blits = h.state.blits.length;
+  await h.state.timers.at(-1).callback();
+  assert.equal(h.state.blits.length, blits, "hidden survey must stop animation");
+});
+
+test("narrow and short bands retain metrics while omitting images; denial stops animation", async () => {
+  const h = await harness(undefined, true);
+  for (const props of [{ bodyColumns: 60, maxRows: 40 }, { bodyColumns: 120, maxRows: 4 }]) {
+    const drawing = await h.render(props);
+    assert.ok(!elements(drawing).some(n => n.key === "session-panel-pet-image"));
+    assert.ok(text(drawing).includes("5h"));
+    assert.ok(text(drawing).includes("7d"));
+  }
+  await h.render({ bodyColumns: 120, maxRows: 40 });
+  h.state.blitResult = { deny: "terminal does not support images" };
+  const timer = h.state.timers.find(t => t.ms === 125);
+  await timer.callback();
+  assert.equal(h.state.cancelled, 1);
+  await timer.callback();
+  assert.equal(h.state.blits.length, 1);
 });
 
 test("a survey retains exclusive use of the band", async () => {

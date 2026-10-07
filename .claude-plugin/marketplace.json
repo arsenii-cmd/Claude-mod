@@ -10,8 +10,8 @@
     {
       "name": "session-panel",
       "source": "./",
-      "description": "Interactive context and quota cards with compact mode, details, session cost and Git status.",
-      "version": "1.1.0",
+      "description": "Session cards above the prompt with 148 animated Clawd Pets and a random collection mode.",
+      "version": "1.2.0",
       "license": "MIT"
     }
   ]

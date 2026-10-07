@@ -1,0 +1,746 @@
+{
+  "repository": "https://github.com/abderrahimghazali/clawd-pet",
+  "commit": "b208f0c04a4084a17f4e5f5adf5198a752be0b36",
+  "pets": [
+    {
+      "id": "angry",
+      "name": "Angry",
+      "category": "emotions"
+    },
+    {
+      "id": "bored",
+      "name": "Bored",
+      "category": "emotions"
+    },
+    {
+      "id": "celebrating",
+      "name": "Celebrating",
+      "category": "emotions"
+    },
+    {
+      "id": "confused",
+      "name": "Confused",
+      "category": "emotions"
+    },
+    {
+      "id": "cool",
+      "name": "Cool",
+      "category": "emotions"
+    },
+    {
+      "id": "crying",
+      "name": "Crying",
+      "category": "emotions"
+    },
+    {
+      "id": "dizzy",
+      "name": "Dizzy",
+      "category": "emotions"
+    },
+    {
+      "id": "embarrassed",
+      "name": "Embarrassed",
+      "category": "emotions"
+    },
+    {
+      "id": "facepalm",
+      "name": "Facepalm",
+      "category": "emotions"
+    },
+    {
+      "id": "grumpy",
+      "name": "Grumpy",
+      "category": "emotions"
+    },
+    {
+      "id": "happy",
+      "name": "Happy",
+      "category": "emotions"
+    },
+    {
+      "id": "hopeful",
+      "name": "Hopeful",
+      "category": "emotions"
+    },
+    {
+      "id": "jealous",
+      "name": "Jealous",
+      "category": "emotions"
+    },
+    {
+      "id": "laughing",
+      "name": "Laughing",
+      "category": "emotions"
+    },
+    {
+      "id": "love",
+      "name": "Love",
+      "category": "emotions"
+    },
+    {
+      "id": "mindblown",
+      "name": "Mindblown",
+      "category": "emotions"
+    },
+    {
+      "id": "praying",
+      "name": "Praying",
+      "category": "emotions"
+    },
+    {
+      "id": "scared",
+      "name": "Scared",
+      "category": "emotions"
+    },
+    {
+      "id": "shrug",
+      "name": "Shrug",
+      "category": "emotions"
+    },
+    {
+      "id": "sick",
+      "name": "Sick",
+      "category": "emotions"
+    },
+    {
+      "id": "sad",
+      "name": "Sad",
+      "category": "emotions"
+    },
+    {
+      "id": "smile",
+      "name": "Smile",
+      "category": "emotions"
+    },
+    {
+      "id": "evil",
+      "name": "Evil",
+      "category": "emotions"
+    },
+    {
+      "id": "surprised",
+      "name": "Surprised",
+      "category": "emotions"
+    },
+    {
+      "id": "yawning",
+      "name": "Yawning",
+      "category": "emotions"
+    },
+    {
+      "id": "hallucinating",
+      "name": "Hallucinating",
+      "category": "emotions"
+    },
+    {
+      "id": "skeptical",
+      "name": "Skeptical",
+      "category": "emotions"
+    },
+    {
+      "id": "astronaut",
+      "name": "Astronaut",
+      "category": "activities"
+    },
+    {
+      "id": "battery-low",
+      "name": "Battery Low",
+      "category": "activities"
+    },
+    {
+      "id": "birthday",
+      "name": "Birthday",
+      "category": "activities"
+    },
+    {
+      "id": "bowling",
+      "name": "Bowling",
+      "category": "activities"
+    },
+    {
+      "id": "camping",
+      "name": "Camping",
+      "category": "activities"
+    },
+    {
+      "id": "charging",
+      "name": "Charging",
+      "category": "activities"
+    },
+    {
+      "id": "chef",
+      "name": "Chef",
+      "category": "activities"
+    },
+    {
+      "id": "clapping",
+      "name": "Clapping",
+      "category": "activities"
+    },
+    {
+      "id": "climbing",
+      "name": "Climbing",
+      "category": "activities"
+    },
+    {
+      "id": "coding",
+      "name": "Coding",
+      "category": "activities"
+    },
+    {
+      "id": "coffee",
+      "name": "Coffee",
+      "category": "activities"
+    },
+    {
+      "id": "crab-walking",
+      "name": "Crab Walking",
+      "category": "activities"
+    },
+    {
+      "id": "crafting",
+      "name": "Crafting",
+      "category": "activities"
+    },
+    {
+      "id": "dancing",
+      "name": "Dancing",
+      "category": "activities"
+    },
+    {
+      "id": "detective",
+      "name": "Detective",
+      "category": "activities"
+    },
+    {
+      "id": "disconnected",
+      "name": "Disconnected",
+      "category": "activities"
+    },
+    {
+      "id": "dj",
+      "name": "Dj",
+      "category": "activities"
+    },
+    {
+      "id": "driving",
+      "name": "Driving",
+      "category": "activities"
+    },
+    {
+      "id": "drumming",
+      "name": "Drumming",
+      "category": "activities"
+    },
+    {
+      "id": "eating",
+      "name": "Eating",
+      "category": "activities"
+    },
+    {
+      "id": "error",
+      "name": "Error",
+      "category": "activities"
+    },
+    {
+      "id": "fire",
+      "name": "Fire",
+      "category": "activities"
+    },
+    {
+      "id": "fishing",
+      "name": "Fishing",
+      "category": "activities"
+    },
+    {
+      "id": "flexing",
+      "name": "Flexing",
+      "category": "activities"
+    },
+    {
+      "id": "flying",
+      "name": "Flying",
+      "category": "activities"
+    },
+    {
+      "id": "gaming",
+      "name": "Gaming",
+      "category": "activities"
+    },
+    {
+      "id": "gardening",
+      "name": "Gardening",
+      "category": "activities"
+    },
+    {
+      "id": "gift",
+      "name": "Gift",
+      "category": "activities"
+    },
+    {
+      "id": "going-away",
+      "name": "Going Away",
+      "category": "activities"
+    },
+    {
+      "id": "ice-cream",
+      "name": "Ice Cream",
+      "category": "activities"
+    },
+    {
+      "id": "idea",
+      "name": "Idea",
+      "category": "activities"
+    },
+    {
+      "id": "idle-living",
+      "name": "Idle Living",
+      "category": "activities"
+    },
+    {
+      "id": "king",
+      "name": "King",
+      "category": "activities"
+    },
+    {
+      "id": "lifting",
+      "name": "Lifting",
+      "category": "activities"
+    },
+    {
+      "id": "loading",
+      "name": "Loading",
+      "category": "activities"
+    },
+    {
+      "id": "magic",
+      "name": "Magic",
+      "category": "activities"
+    },
+    {
+      "id": "mail",
+      "name": "Mail",
+      "category": "activities"
+    },
+    {
+      "id": "meditating",
+      "name": "Meditating",
+      "category": "activities"
+    },
+    {
+      "id": "money",
+      "name": "Money",
+      "category": "activities"
+    },
+    {
+      "id": "music",
+      "name": "Music",
+      "category": "activities"
+    },
+    {
+      "id": "ninja",
+      "name": "Ninja",
+      "category": "activities"
+    },
+    {
+      "id": "notification",
+      "name": "Notification",
+      "category": "activities"
+    },
+    {
+      "id": "painting",
+      "name": "Painting",
+      "category": "activities"
+    },
+    {
+      "id": "peeking",
+      "name": "Peeking",
+      "category": "activities"
+    },
+    {
+      "id": "photography",
+      "name": "Photography",
+      "category": "activities"
+    },
+    {
+      "id": "pirate",
+      "name": "Pirate",
+      "category": "activities"
+    },
+    {
+      "id": "podcast",
+      "name": "Podcast",
+      "category": "activities"
+    },
+    {
+      "id": "rainbow",
+      "name": "Rainbow",
+      "category": "activities"
+    },
+    {
+      "id": "reading",
+      "name": "Reading",
+      "category": "activities"
+    },
+    {
+      "id": "rocket",
+      "name": "Rocket",
+      "category": "activities"
+    },
+    {
+      "id": "running",
+      "name": "Running",
+      "category": "activities"
+    },
+    {
+      "id": "security",
+      "name": "Security",
+      "category": "activities"
+    },
+    {
+      "id": "shipping",
+      "name": "Shipping",
+      "category": "activities"
+    },
+    {
+      "id": "singing",
+      "name": "Singing",
+      "category": "activities"
+    },
+    {
+      "id": "skateboard",
+      "name": "Skateboard",
+      "category": "activities"
+    },
+    {
+      "id": "sleeping",
+      "name": "Sleeping",
+      "category": "activities"
+    },
+    {
+      "id": "snow",
+      "name": "Snow",
+      "category": "activities"
+    },
+    {
+      "id": "star",
+      "name": "Star",
+      "category": "activities"
+    },
+    {
+      "id": "static-base",
+      "name": "Static Base",
+      "category": "activities"
+    },
+    {
+      "id": "studying",
+      "name": "Studying",
+      "category": "activities"
+    },
+    {
+      "id": "superhero",
+      "name": "Superhero",
+      "category": "activities"
+    },
+    {
+      "id": "surfing",
+      "name": "Surfing",
+      "category": "activities"
+    },
+    {
+      "id": "swimming",
+      "name": "Swimming",
+      "category": "activities"
+    },
+    {
+      "id": "telescope",
+      "name": "Telescope",
+      "category": "activities"
+    },
+    {
+      "id": "time-travel",
+      "name": "Time Travel",
+      "category": "activities"
+    },
+    {
+      "id": "trophy",
+      "name": "Trophy",
+      "category": "activities"
+    },
+    {
+      "id": "umbrella",
+      "name": "Umbrella",
+      "category": "activities"
+    },
+    {
+      "id": "waving",
+      "name": "Waving",
+      "category": "activities"
+    },
+    {
+      "id": "yoga",
+      "name": "Yoga",
+      "category": "activities"
+    },
+    {
+      "id": "working-beacon",
+      "name": "Working Beacon",
+      "category": "working"
+    },
+    {
+      "id": "working-building",
+      "name": "Working Building",
+      "category": "working"
+    },
+    {
+      "id": "working-carrying",
+      "name": "Working Carrying",
+      "category": "working"
+    },
+    {
+      "id": "working-conducting",
+      "name": "Working Conducting",
+      "category": "working"
+    },
+    {
+      "id": "working-confused",
+      "name": "Working Confused",
+      "category": "working"
+    },
+    {
+      "id": "working-debugger",
+      "name": "Working Debugger",
+      "category": "working"
+    },
+    {
+      "id": "working-deploying",
+      "name": "Working Deploying",
+      "category": "working"
+    },
+    {
+      "id": "working-juggling",
+      "name": "Working Juggling",
+      "category": "working"
+    },
+    {
+      "id": "working-meeting",
+      "name": "Working Meeting",
+      "category": "working"
+    },
+    {
+      "id": "working-merging",
+      "name": "Working Merging",
+      "category": "working"
+    },
+    {
+      "id": "working-oncall",
+      "name": "Working Oncall",
+      "category": "working"
+    },
+    {
+      "id": "working-overheated",
+      "name": "Working Overheated",
+      "category": "working"
+    },
+    {
+      "id": "working-pairing",
+      "name": "Working Pairing",
+      "category": "working"
+    },
+    {
+      "id": "working-pushing",
+      "name": "Working Pushing",
+      "category": "working"
+    },
+    {
+      "id": "working-reviewing",
+      "name": "Working Reviewing",
+      "category": "working"
+    },
+    {
+      "id": "working-sweeping",
+      "name": "Working Sweeping",
+      "category": "working"
+    },
+    {
+      "id": "working-testing",
+      "name": "Working Testing",
+      "category": "working"
+    },
+    {
+      "id": "working-thinking",
+      "name": "Working Thinking",
+      "category": "working"
+    },
+    {
+      "id": "working-typing",
+      "name": "Working Typing",
+      "category": "working"
+    },
+    {
+      "id": "working-wizard",
+      "name": "Working Wizard",
+      "category": "working"
+    },
+    {
+      "id": "working-context-full",
+      "name": "Working Context Full",
+      "category": "working"
+    },
+    {
+      "id": "working-tool-calling",
+      "name": "Working Tool Calling",
+      "category": "working"
+    },
+    {
+      "id": "working-rubber-duck",
+      "name": "Working Rubber Duck",
+      "category": "working"
+    },
+    {
+      "id": "working-firefighting",
+      "name": "Working Firefighting",
+      "category": "working"
+    },
+    {
+      "id": "working-rollback",
+      "name": "Working Rollback",
+      "category": "working"
+    },
+    {
+      "id": "valentine",
+      "name": "Valentine",
+      "category": "seasonal"
+    },
+    {
+      "id": "halloween",
+      "name": "Halloween",
+      "category": "seasonal"
+    },
+    {
+      "id": "christmas",
+      "name": "Christmas",
+      "category": "seasonal"
+    },
+    {
+      "id": "new-year",
+      "name": "New Year",
+      "category": "seasonal"
+    },
+    {
+      "id": "spring",
+      "name": "Spring",
+      "category": "seasonal"
+    },
+    {
+      "id": "summer",
+      "name": "Summer",
+      "category": "seasonal"
+    },
+    {
+      "id": "autumn",
+      "name": "Autumn",
+      "category": "seasonal"
+    },
+    {
+      "id": "winter",
+      "name": "Winter",
+      "category": "seasonal"
+    },
+    {
+      "id": "thanksgiving",
+      "name": "Thanksgiving",
+      "category": "seasonal"
+    },
+    {
+      "id": "200",
+      "name": "200",
+      "category": "http-status"
+    },
+    {
+      "id": "201",
+      "name": "201",
+      "category": "http-status"
+    },
+    {
+      "id": "204",
+      "name": "204",
+      "category": "http-status"
+    },
+    {
+      "id": "301",
+      "name": "301",
+      "category": "http-status"
+    },
+    {
+      "id": "400",
+      "name": "400",
+      "category": "http-status"
+    },
+    {
+      "id": "401",
+      "name": "401",
+      "category": "http-status"
+    },
+    {
+      "id": "402",
+      "name": "402",
+      "category": "http-status"
+    },
+    {
+      "id": "403",
+      "name": "403",
+      "category": "http-status"
+    },
+    {
+      "id": "404",
+      "name": "404",
+      "category": "http-status"
+    },
+    {
+      "id": "408",
+      "name": "408",
+      "category": "http-status"
+    },
+    {
+      "id": "410",
+      "name": "410",
+      "category": "http-status"
+    },
+    {
+      "id": "418",
+      "name": "418",
+      "category": "http-status"
+    },
+    {
+      "id": "429",
+      "name": "429",
+      "category": "http-status"
+    },
+    {
+      "id": "451",
+      "name": "451",
+      "category": "http-status"
+    },
+    {
+      "id": "500",
+      "name": "500",
+      "category": "http-status"
+    },
+    {
+      "id": "502",
+      "name": "502",
+      "category": "http-status"
+    },
+    {
+      "id": "503",
+      "name": "503",
+      "category": "http-status"
+    },
+    {
+      "id": "504",
+      "name": "504",
+      "category": "http-status"
+    }
+  ]
+}
