@@ -24,7 +24,7 @@ function stopAnimation() {
 
 function startAnimation($) {
   if (animationTimer || !imageSite) return;
-  animationTimer = $.clock.every(125, async () => {
+  animationTimer = $.clock.every(1000 / 12, async () => {
     if (!imageSite || blitting) return;
     blitting = true;
     const mounted = imageSite;
@@ -249,7 +249,7 @@ export function register(on) {
         pet ? Text({ dimColor: true, children: `${petState.mode === "collection" ? "Коллекция" : "Clawd"}: ${pet.name}` }) : null,
       ],
     }) : null;
-    const mascot = showPet ? Box({ key: "session-panel-mascot", width: 22, flexShrink: 0, flexDirection: "column", alignItems: "center", children: [
+    const mascot = showPet ? Box({ key: "session-panel-mascot", width: 22, flexShrink: 0, flexDirection: "column", alignItems: "center", justifyContent: "flex-end", children: [
       Image({ key: "session-panel-pet-image", source: petFrame(pet, now - petState.since), ...petSize(pet), alt: `Clawd: ${pet.name}` }),
     ] }) : null;
     if (showPet && e.requestId) {

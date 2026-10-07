@@ -1,12 +1,12 @@
 {
   "name": "session-panel",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "type": "module",
   "license": "MIT",
   "scripts": {
     "test": "node tests/run.mjs",
-    "check": "node --check hooks/register.mjs && node --check hooks/format.mjs && node --check hooks/panel.mjs && node --check hooks/pets.mjs",
+    "check": "node --check hooks/register.mjs && node --check hooks/format.mjs && node --check hooks/panel.mjs && node --check hooks/pets.mjs && node --check hooks/pet-codec.mjs",
     "validate:claude": "claude plugin validate .",
     "test:claude": "claude plugin test ."
   },

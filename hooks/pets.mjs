@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Artwork is vendored from Clawd Pets; see assets/clawd-pets/LICENSE.
 import { pets } from "../assets/clawd-pets/frames.mjs";
+import { decodePetFrame } from "./pet-codec.mjs";
 
 export { pets };
 const byId = new Map(pets.map((pet) => [pet.id, pet]));
@@ -72,7 +73,7 @@ export function choosePet(state, now, random = Math.random) {
 
 export function petFrame(pet, elapsed) {
   const phase = ((elapsed % pet.loopMs) + pet.loopMs) % pet.loopMs;
-  return { png: pet.frames[Math.floor(phase / pet.loopMs * pet.frames.length)] };
+  return decodePetFrame(pet, Math.floor(phase / pet.loopMs * pet.frames.length));
 }
 
 export function petSize(pet) {

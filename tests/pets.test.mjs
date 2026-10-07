@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { inflateRawSync, inflateSync } from "node:zlib";
 import { choosePet, createPetState, petFrame, petSize, pets, resultActivity, setActivity, setPetMode, toolActivity } from "../hooks/pets.mjs";
 
 test("all upstream gallery entries have offline PNG frames and valid display sizes", () => {
@@ -8,19 +9,40 @@ test("all upstream gallery entries have offline PNG frames and valid display siz
   assert.equal(pets.length, 148);
   assert.deepEqual(pets.map(pet => pet.id), catalog.pets.map(pet => pet.id));
   for (const pet of pets) {
-    assert.equal(pet.frames.length, 32, pet.id);
+    assert.equal(pet.frames.length, Math.ceil(pet.loopMs / 1000 * 12), pet.id);
+    assert.ok(pet.width * 2 >= 100 && pet.height * 2 >= 100, `high-resolution artwork: ${pet.id}`);
     for (const frame of pet.frames) {
       const bytes = Buffer.from(frame, "base64");
-      assert.equal(bytes.subarray(0, 8).toString("hex"), "89504e470d0a1a0a", pet.id);
-      assert.equal(bytes.readUInt32BE(16), pet.width, pet.id);
-      assert.equal(bytes.readUInt32BE(20), pet.height, pet.id);
+      assert.equal(inflateRawSync(bytes).length, pet.width * pet.height, pet.id);
     }
+    const bytes = Buffer.from(petFrame(pet,0).png,"base64");
+    assert.equal(bytes.subarray(0,8).toString("hex"),"89504e470d0a1a0a");
+    assert.equal(bytes.readUInt32BE(16),pet.width*2);
+    assert.equal(bytes.readUInt32BE(20),pet.height*2);
     assert.deepEqual(petFrame(pet, 0), petFrame(pet, pet.loopMs));
     const size = petSize(pet);
     assert.ok(size.columns >= 1 && size.columns <= 22);
     assert.ok(size.rows >= 1 && size.rows <= 6);
   }
   assert.ok(pets.filter(p => new Set(p.frames).size > 1).length >= 140, "baked assets must actually animate");
+});
+
+test("delta seeking reconstructs the same pixels after backward jumps and scene switches", () => {
+  const pet = pets.find(p => p.id === "detective");
+  const readPixels = (source) => {
+    const bytes = Buffer.from(source.png,"base64");
+    for (let offset = 8; offset < bytes.length;) {
+      const length = bytes.readUInt32BE(offset);
+      if (bytes.toString("ascii",offset+4,offset+8) === "IDAT") return inflateSync(bytes.subarray(offset+8,offset+8+length));
+      offset += length+12;
+    }
+    throw new Error("missing PNG pixels");
+  };
+  const expected = petFrame(pet, pet.loopMs * 0.7);
+  petFrame(pet,0);
+  petFrame(pets[0],300);
+  assert.deepEqual(readPixels(petFrame(pet, pet.loopMs * 0.7)),readPixels(expected));
+  assert.deepEqual(petFrame(pet,0),petFrame(pet,pet.loopMs));
 });
 
 test("random collection visits every scene once per round with no boundary repeat", () => {

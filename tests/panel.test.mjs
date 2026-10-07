@@ -120,12 +120,13 @@ test("mascot animates by blit without repainting metrics and stops for hidden ba
   const props = { bodyColumns: 120, maxRows: 40 };
   const drawing = await h.render(props);
   assert.ok(elements(drawing).some(n => n.key === "session-panel-pet-image"));
+  assert.equal(elements(drawing).find(n => n.key === "session-panel-mascot").justifyContent, "flex-end", "mascot stays near the input, at the bottom of the cards");
   assert.equal(elements(drawing).filter(n => n.key?.startsWith("session-panel-card-")).length, 3);
   assert.ok(text(drawing).includes("Репо owner/project"));
-  const timer = h.state.timers.find(t => t.ms === 125);
+  const timer = h.state.timers.find(t => t.ms === 1000 / 12);
   assert.ok(timer);
   const before = h.state.redraws;
-  h.state.now += 125;
+  h.state.now += 1000 / 12;
   await timer.callback();
   assert.equal(h.state.blits.length, 1);
   assert.equal(h.state.blits[0].requestId, "test-band");
@@ -153,7 +154,7 @@ test("narrow and short bands retain metrics while omitting images; denial stops 
   }
   await h.render({ bodyColumns: 120, maxRows: 40 });
   h.state.blitResult = { deny: "terminal does not support images" };
-  const timer = h.state.timers.find(t => t.ms === 125);
+  const timer = h.state.timers.find(t => t.ms === 1000 / 12);
   await timer.callback();
   assert.equal(h.state.cancelled, 1);
   await timer.callback();
