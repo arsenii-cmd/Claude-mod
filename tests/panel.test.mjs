@@ -286,6 +286,31 @@ test("toggle remains collapsed across redraws and clear; opening restores cards"
   assert.ok(text(await h.render(props)).includes("SESSION PANEL"));
 });
 
+test("compact gauges track each reading, retain unknown values, and fit short bands", async () => {
+  const h = await harness(undefined, true);
+  const props = { bodyColumns: 160, maxRows: 40 };
+  press(await h.render(props), "session-panel-toggle");
+  const drawing = await h.render(props);
+  const band = elements(drawing).find(n => n.key === "session-panel");
+  assert.equal(band.minHeight, 6);
+  for (const [index,value] of [24.2,37.5,62].entries()) {
+    const gauge = elements(drawing).find(n => n.key === `session-panel-compact-meter-${index}`);
+    const rendered = text(gauge);
+    assert.equal(Array.from(rendered).length,gauge.width);
+    assert.equal(rendered.split("█").length-1,Math.round(value/100*gauge.width));
+  }
+  assert.ok(text(drawing).includes("Ветка main"));
+  h.state.usage.context = { window: 200_000 };
+  h.state.usage.rateLimits[0].percentUsed = 0;
+  const fresh = await h.render(props);
+  assert.match(text(elements(fresh).find(n => n.key === "session-panel-compact-meter-0")),/^·+$/);
+  assert.match(text(elements(fresh).find(n => n.key === "session-panel-compact-meter-1")),/^░+$/);
+  const short = await h.render({ ...props,maxRows:4 });
+  assert.ok(!elements(short).some(n => n.key === "session-panel-compact-meters"));
+  assert.ok(text(short).includes("5h 0%"));
+  assert.ok(text(short).includes("7d 62%"));
+});
+
 test("context details request only free summary counts and clear on session changes", async () => {
   const h = await harness();
   h.state.breakdown = {

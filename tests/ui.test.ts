@@ -33,6 +33,9 @@ test("native terminal and Desktop validate cards, quota details and folding", as
     expect(await ui.find({ key: "session-panel-details" })).toBeUndefined();
     await ui.press({ key: "session-panel-toggle" });
     expect(await ui.find({ key: "session-panel-card-context" })).toBeUndefined();
+    expect(await ui.find({ key: "session-panel-compact-meter-0" })).toBeDefined();
+    expect(await ui.find({ key: "session-panel-compact-meter-1" })).toBeDefined();
+    expect(await ui.find({ key: "session-panel-compact-meter-2" })).toBeDefined();
     expect(JSON.stringify(await ui.drawn())).toContain("Контекст");
     await ui.press({ key: "session-panel-toggle" });
     expect(await ui.find({ key: "session-panel-card-context" })).toBeDefined();
