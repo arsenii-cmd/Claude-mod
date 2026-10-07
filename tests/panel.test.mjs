@@ -260,6 +260,7 @@ test("mascot animates by blit without repainting metrics and stops for hidden ba
   const h = await harness(undefined, true);
   await h.fire("session.start", { isInteractive: true });
   const props = { bodyColumns: 120, maxRows: 40 };
+  press(await h.render(props), "session-panel-toggle");
   const drawing = await h.render(props);
   assert.ok(elements(drawing).some(n => n.key === "session-panel-pet-image"));
   assert.equal(elements(drawing).find(n => n.key === "session-panel-mascot").justifyContent, "flex-end", "mascot stays near the input, at the bottom of the cards");
@@ -406,7 +407,9 @@ test("narrow bands constrain every metric and keep both limits", async () => {
 
 test("expanded cards show remaining quota and exact free tokens", async () => {
   const h = await harness();
-  const drawing = await h.render({ bodyColumns: 120, maxRows: 40 });
+  const props = { bodyColumns: 120, maxRows: 40 };
+  press(await h.render(props), "session-panel-toggle");
+  const drawing = await h.render(props);
   const cards = elements(drawing).filter((node) => node.key?.startsWith("session-panel-card-"));
   assert.equal(cards.length, 3);
   for (const reading of ["SESSION PANEL", "24.2% окна", "Свободно 151 680 ток", "37.5% использовано", "Осталось 62.5%", "Осталось 38%", "Сброс через 2ч 14м"]) {
@@ -415,10 +418,9 @@ test("expanded cards show remaining quota and exact free tokens", async () => {
   assert.ok(h.state.usageCalls.every((call) => call === undefined));
 });
 
-test("toggle remains collapsed across redraws and clear; opening restores cards", async () => {
+test("panel starts compact even in wide windows; opening restores cards", async () => {
   const h = await harness();
   const props = { bodyColumns: 120, maxRows: 40 };
-  press(await h.render(props), "session-panel-toggle");
   let drawing = await h.render(props);
   assert.equal(elements(drawing).filter((node) => node.key?.startsWith("session-panel-card-")).length, 0);
   await h.fire("session.end", { reason: "clear" });
@@ -431,7 +433,6 @@ test("toggle remains collapsed across redraws and clear; opening restores cards"
 test("compact gauges track each reading, retain unknown values, and fit short bands", async () => {
   const h = await harness(undefined, true);
   const props = { bodyColumns: 160, maxRows: 40 };
-  press(await h.render(props), "session-panel-toggle");
   const drawing = await h.render(props);
   const band = elements(drawing).find(n => n.key === "session-panel");
   assert.equal(band.minHeight, 6);
@@ -461,6 +462,7 @@ test("context details request only free summary counts and clear on session chan
     autoCompactThreshold: 180_000,
   };
   const props = { bodyColumns: 120, maxRows: 40 };
+  press(await h.render(props), "session-panel-toggle");
   press(await h.render(props), "session-panel-detail-context");
   const opened = await h.render(props);
   assert.ok(text(opened).includes("Messages 45 120 ток"));
@@ -476,6 +478,7 @@ test("context details request only free summary counts and clear on session chan
 test("quota details show an absolute reset date without making a breakdown request", async () => {
   const h = await harness();
   const props = { bodyColumns: 120, maxRows: 40 };
+  press(await h.render(props), "session-panel-toggle");
   press(await h.render(props), "session-panel-detail-five_hour");
   const opened = await h.render(props);
   assert.ok(text(opened).includes("Использовано 37.5% · осталось 62.5%"));
@@ -483,14 +486,16 @@ test("quota details show an absolute reset date without making a breakdown reque
   assert.ok(h.state.usageCalls.every((call) => call === undefined));
 });
 
-test("cards stack on narrow windows and automatic mode respects short windows", async () => {
+test("expanded cards stack on narrow windows and compact mode fits short windows", async () => {
   const h = await harness();
+  press(await h.render({ bodyColumns: 120, maxRows: 60 }), "session-panel-toggle");
   for (const width of [40, 80, 120]) {
     const drawing = await h.render({ bodyColumns: width, maxRows: 60 });
     const cards = elements(drawing).filter((node) => node.key?.startsWith("session-panel-card-"));
     assert.equal(cards.length, 3);
     assert.ok(cards.every((card) => card.width <= width - 4));
   }
+  press(await h.render({ bodyColumns: 120, maxRows: 4 }), "session-panel-toggle");
   const short = await h.render({ bodyColumns: 120, maxRows: 4 });
   assert.ok(text(short).includes("Развернуть"));
   assert.ok(!text(short).includes("SESSION PANEL"));

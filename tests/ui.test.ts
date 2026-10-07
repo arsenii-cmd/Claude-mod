@@ -49,6 +49,9 @@ test("native terminal and Desktop validate cards, quota details and folding", as
         scroll: { offset: 0, bodyRows: 40 }, view: {},
       },
     });
+    expect(await ui.find({ key: "session-panel-card-context" })).toBeUndefined();
+    expect(await ui.find({ key: "session-panel-compact-meter-0" })).toBeDefined();
+    await ui.press({ key: "session-panel-toggle" });
     expect(await ui.find({ key: "session-panel-card-context" })).toBeDefined();
     expect(JSON.stringify(await ui.drawn())).toContain("62.5%");
     await ui.press({ key: "session-panel-detail-five_hour" });
@@ -61,8 +64,6 @@ test("native terminal and Desktop validate cards, quota details and folding", as
     expect(await ui.find({ key: "session-panel-compact-meter-1" })).toBeDefined();
     expect(await ui.find({ key: "session-panel-compact-meter-2" })).toBeDefined();
     expect(JSON.stringify(await ui.drawn())).toContain("Контекст");
-    await ui.press({ key: "session-panel-toggle" });
-    expect(await ui.find({ key: "session-panel-card-context" })).toBeDefined();
   }
 });
 
@@ -92,6 +93,7 @@ test("native context details use the local estimate without paid token counting"
     scroll: { offset: 0, bodyRows: 40 }, view: {},
   } });
   expect(summaries).toBe(0);
+  await ui.press({ key: "session-panel-toggle" });
   await ui.press({ key: "session-panel-detail-context" });
   expect(summaries > 0).toBe(true);
   expect(JSON.stringify(await ui.drawn())).toContain("Messages");
@@ -113,7 +115,7 @@ test("native mascot controls switch random collection and hide images without lo
   expect(JSON.stringify(await ui.drawn())).toContain("Коллекция:");
   await ui.press({ key: "session-panel-pet-visibility" });
   expect(await ui.find({ key: "session-panel-pet-image" })).toBeUndefined();
-  expect(await ui.find({ key: "session-panel-card-context" })).toBeDefined();
+  expect(await ui.find({ key: "session-panel-compact-meter-0" })).toBeDefined();
   await ui.press({ key: "session-panel-pet-visibility" });
   expect(await ui.find({ key: "session-panel-pet-image" })).toBeDefined();
 });

@@ -9,7 +9,7 @@ const REFRESH_MS = 15_000;
 const GIT_OPTIONS = { timeoutMs: 1000, env: { GIT_OPTIONAL_LOCKS: "0" } };
 let timer;
 let generation = 0;
-let panelMode = "auto";
+let panelMode = "compact";
 let selectedDetail = null;
 const petState = createPetState();
 let animationTimer;
